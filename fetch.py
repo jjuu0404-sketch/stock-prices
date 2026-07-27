@@ -9,9 +9,14 @@ import json
 import re
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+# 깃허브 서버는 UTC 로 돌아간다. 여기서 쓰는 시세는 한국 장 기준이므로
+# 화면에 보일 시각은 항상 한국시각으로 못박는다.
+KST = timezone(timedelta(hours=9))
 
 HERE = Path(__file__).parent
 TICKERS = HERE / "tickers.json"
@@ -104,9 +109,11 @@ def main():
         print("한 건도 못 받았다. 이전 파일을 그대로 둔다.", file=sys.stderr)
         return 1
 
+    now = datetime.now(KST)
     payload = {
-        "updated": time.strftime("%Y-%m-%d %H:%M", time.localtime()),
-        "updatedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "updated": now.strftime("%Y-%m-%d %H:%M"),      # 한국시각
+        "tz": "KST",
+        "updatedUtc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "count": len(prices),
         "prices": prices,
     }
