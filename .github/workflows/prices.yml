@@ -1,0 +1,44 @@
+name: 시세 수집
+
+on:
+  schedule:
+    # 한국 장중(09:00~15:30 KST = 00:00~06:30 UTC) 10분마다.
+    # 깃허브 예약 실행은 부하에 따라 몇 분에서 수십 분 밀릴 수 있다.
+    - cron: "*/10 0-7 * * 1-5"
+    # 장 마감 뒤 종가 확정본을 한 번 더 받는다 (16:10 KST).
+    - cron: "10 7 * * 1-5"
+  workflow_dispatch:        # 버튼으로 직접 돌릴 수도 있다
+
+# 결과 파일을 저장소에 커밋해야 하므로 쓰기 권한이 필요하다
+permissions:
+  contents: write
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 시세 받기
+        run: python fetch.py
+
+      - name: 바뀌었으면 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prices.json
+          if git diff --staged --quiet; then
+            echo "변동 없음 - 커밋 생략"
+          else
+            git commit -m "시세 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
